@@ -22,9 +22,7 @@ class GetHandler(SimpleHTTPRequestHandler):
             iv = iv.partition('basic ')[2]
 
             iv = base64.b64decode(iv)
-            print(iv)
-
-            print('Initialization vector: {}\n'.format(iv))
+            print('Initialization vector: {}'.format(iv))
             print('Encrypted data: {}'.format(ct))
 
             cipher = AES.new(bytes(SECRET_KEY, 'utf-8'), AES.MODE_CBC, bytes(iv))
